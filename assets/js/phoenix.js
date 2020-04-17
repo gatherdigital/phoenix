@@ -236,14 +236,14 @@ let closure = (value) => {
  * @param {number} timeout - The push timeout in milliseconds
  */
 class Push {
-  constructor(channel, event, payload, timeout){
+  constructor(channel, event, payload, timeout, recHooks=[]){
     this.channel      = channel
     this.event        = event
     this.payload      = payload || function(){ return {} }
     this.receivedResp = null
     this.timeout      = timeout
     this.timeoutTimer = null
-    this.recHooks     = []
+    this.recHooks     = [...recHooks]
     this.sent         = false
   }
 
@@ -367,6 +367,7 @@ export class Channel {
     this.params      = closure(params || {})
     this.socket      = socket
     this.bindings    = []
+    this.sendBindings = []
     this.bindingRef  = 0
     this.timeout     = this.socket.timeout
     this.joinedOnce  = false
@@ -497,6 +498,18 @@ export class Channel {
     })
   }
 
+  onSent(event, callback){
+    let ref = this.bindingRef++
+    this.sendBindings.push({event, ref, callback})
+    return ref
+  }
+
+  offSent(event, ref){
+    this.sendBindings = this.sendBindings.filter(bind => {
+      return !(bind.event === event && (typeof ref === 'undefined' || ref === bind.ref))
+    })
+  }
+
   /**
    * @private
    */
@@ -512,7 +525,8 @@ export class Channel {
     if(!this.joinedOnce){
       throw new Error(`tried to push '${event}' to '${this.topic}' before joining. Use channel.join() before pushing events`)
     }
-    let pushEvent = new Push(this, event, function(){ return payload }, timeout)
+    const bindings = this.sendBindings.filter((bind) => bind.event === event)
+    let pushEvent = new Push(this, event, function(){ return payload }, timeout, bindings)
     if(this.canPush()){
       pushEvent.send()
     } else {
