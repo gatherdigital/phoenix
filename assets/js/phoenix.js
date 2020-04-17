@@ -498,9 +498,9 @@ export class Channel {
     })
   }
 
-  onSent(event, callback){
+  onSent(event, callback, status){
     let ref = this.bindingRef++
-    this.sendBindings.push({event, ref, callback})
+    this.sendBindings.push({event, ref, callback, status})
     return ref
   }
 
